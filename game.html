@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris — Space Edition</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Courier New', Courier, monospace;
+  overflow: hidden;
+}
+#stars {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+#game-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+}
+#left-panel, #right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 80px;
+}
+.panel-box {
+  background: rgba(10,15,40,0.85);
+  border: 1px solid rgba(120,180,255,0.2);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.panel-label {
+  font-size: 9px;
+  color: rgba(120,180,255,0.6);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.panel-value { font-size: 16px; color: #fff; font-weight: 500; }
+.panel-value.small { font-size: 12px; }
+canvas.preview { display: block; margin: 0 auto; }
+#board {
+  display: block;
+  border: 1px solid rgba(120,180,255,0.3);
+  box-shadow: 0 0 30px rgba(80,120,255,0.15);
+}
+#btn-row { display: flex; flex-direction: column; gap: 6px; }
+.gbtn {
+  background: rgba(10,15,40,0.85);
+  border: 1px solid rgba(120,180,255,0.25);
+  border-radius: 5px;
+  color: rgba(180,210,255,0.9);
+  font-size: 10px;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+  transition: background 0.15s;
+}
+.gbtn:hover { background: rgba(40,60,120,0.7); }
+#overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,8,0.82);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  z-index: 10;
+  border-radius: 2px;
+}
+#overlay h2 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  font-family: inherit;
+}
+#overlay p {
+  color: rgba(160,200,255,0.8);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-align: center;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+#overlay .obtn {
+  background: rgba(40,70,180,0.5);
+  border: 1px solid rgba(100,160,255,0.4);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  padding: 10px 24px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+#overlay .obtn:hover { background: rgba(60,100,220,0.7); }
+#touch-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+  z-index: 1;
+  position: relative;
+  flex-wrap: wrap;
+  max-width: 340px;
+}
+.tbtn {
+  background: rgba(20,30,80,0.85);
+  border: 1px solid rgba(120,180,255,0.25);
+  border-radius: 8px;
+  color: rgba(180,210,255,0.9);
+  font-size: 20px;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+@media (max-width: 520px) {
+  #game-wrap { flex-direction: column; align-items: center; gap: 8px; }
+  #left-panel, #right-panel {
+    flex-direction: row;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .panel-box { min-width: 70px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="game-wrap">
+  <div id="left-panel">
+    <div class="panel-box">
+      <div class="panel-label">Score</div>
+      <div class="panel-value small" id="score">0</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Level</div>
+      <div class="panel-value" id="level">1</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Lines</div>
+      <div class="panel-value small" id="lines">0</div>
+    </div>
+    <div class="panel-box" id="btn-row">
+      <button class="gbtn" id="btn-pause">Pause</button>
+      <button class="gbtn" id="btn-restart">Restart</button>
+    </div>
+  </div>
+
+  <div style="position:relative">
+    <canvas id="board"></canvas>
+    <div id="overlay">
+      <h2 id="overlay-title">TETRIS</h2>
+      <p id="overlay-msg">Arrow keys to move&#10;Z / Up to rotate&#10;Space = hard drop&#10;C = hold piece</p>
+      <button class="obtn" id="overlay-btn">Start Game</button>
+    </div>
+  </div>
+
+  <div id="right-panel">
+    <div class="panel-box">
+      <div class="panel-label">Next</div>
+      <canvas class="preview" id="next-canvas" width="64" height="64"></canvas>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Hold</div>
+      <canvas class="preview" id="hold-canvas" width="64" height="64"></canvas>
+    </div>
+  </div>
+</div>
+
+<div id="touch-controls">
+  <div class="tbtn" id="t-hold" title="Hold (C)">C</div>
+  <div class="tbtn" id="t-left" title="Move Left">&#8592;</div>
+  <div class="tbtn" id="t-rotate" title="Rotate">&#8635;</div>
+  <div class="tbtn" id="t-right" title="Move Right">&#8594;</div>
+  <div class="tbtn" id="t-soft" title="Soft Drop">&#8595;</div>
+  <div class="tbtn" id="t-hard" title="Hard Drop">&#10571;</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const COLS=10,ROWS=20,CELL=28;
+const SCORES=[0,100,300,500,800];
+const LEVEL_LINES=10;
+const LOCK_DELAY=500;
+
+const COLORS={I:'#00e5ff',O:'#ffd600',T:'#e040fb',S:'#69f0ae',Z:'#ff5252',J:'#448aff',L:'#ff9100'};
+
+const PIECES={
+  I:{shape:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],c:'I'},
+  O:{shape:[[1,1],[1,1]],c:'O'},
+  T:{shape:[[0,1,0],[1,1,1],[0,0,0]],c:'T'},
+  S:{shape:[[0,1,1],[1,1,0],[0,0,0]],c:'S'},
+  Z:{shape:[[1,1,0],[0,1,1],[0,0,0]],c:'Z'},
+  J:{shape:[[1,0,0],[1,1,1],[0,0,0]],c:'J'},
+  L:{shape:[[0,0,1],[1,1,1],[0,0,0]],c:'L'}
+};
+const PIECE_KEYS=Object.keys(PIECES);
+
+const board=document.getElementById('board');
+const bctx=board.getContext('2d');
+board.width=COLS*CELL; board.height=ROWS*CELL;
+
+const nextC=document.getElementById('next-canvas');
+const nctx=nextC.getContext('2d');
+const holdC=document.getElementById('hold-canvas');
+const hctx=holdC.getContext('2d');
+
+let grid,bag,current,next,hold,canHold,score,level,lines;
+let gameState,dropTimer,dropInterval,lastTime,animId,lockTimer;
+
+/* ── 7-Bag Randomiser ── */
+function newBag(){
+  const b=[...PIECE_KEYS];
+  for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+  return b;
+}
+function getFromBag(){
+  if(!bag||!bag.length)bag=newBag();
+  return PIECES[bag.pop()];
+}
+
+/* ── Piece Helpers ── */
+function spawnPiece(p){
+  return{shape:p.shape.map(r=>[...r]),c:p.c,
+    x:Math.floor((COLS-p.shape[0].length)/2),y:p.c==='I'?-1:0};
+}
+function rotate(s){
+  const N=s.length;
+  return Array.from({length:N},(_,i)=>s.map(r=>r[i]).reverse());
+}
+function collides(s,x,y){
+  for(let r=0;r<s.length;r++)
+    for(let c=0;c<s[r].length;c++)
+      if(s[r][c]){
+        const nx=x+c,ny=y+r;
+        if(nx<0||nx>=COLS||ny>=ROWS)return true;
+        if(ny>=0&&grid[ny][nx])return true;
+      }
+  return false;
+}
+function ghostY(){
+  let y=current.y;
+  while(!collides(current.shape,current.x,y+1))y++;
+  return y;
+}
+
+/* ── Lock & Clear ── */
+function lockPiece(){
+  for(let r=0;r<current.shape.length;r++)
+    for(let c=0;c<current.shape[r].length;c++)
+      if(current.shape[r][c]){
+        const ny=current.y+r;
+        if(ny<0){gameOver();return;}
+        grid[ny][current.x+c]=current.c;
+      }
+  clearLines();
+  canHold=true;
+  current=spawnPiece(next);
+  next=getFromBag();
+  lockTimer=null;
+  if(collides(current.shape,current.x,current.y))gameOver();
+}
+function clearLines(){
+  let cleared=0;
+  for(let r=ROWS-1;r>=0;r--){
+    if(grid[r].every(c=>c!==null)){
+      grid.splice(r,1);grid.unshift(Array(COLS).fill(null));cleared++;r++;
+    }
+  }
+  if(cleared>0){
+    score+=SCORES[cleared]*level;
+    lines+=cleared;
+    level=Math.floor(lines/LEVEL_LINES)+1;
+    dropInterval=Math.max(50,800-(level-1)*70);
+    document.getElementById('score').textContent=score;
+    document.getElementById('level').textContent=level;
+    document.getElementById('lines').textContent=lines;
+  }
+}
+
+/* ── Player Actions ── */
+function moveLeft(){if(!collides(current.shape,current.x-1,current.y))current.x--;}
+function moveRight(){if(!collides(current.shape,current.x+1,current.y))current.x++;}
+function softDrop(){
+  if(!collides(current.shape,current.x,current.y+1)){
+    current.y++;score++;document.getElementById('score').textContent=score;
+  }else{if(lockTimer===null)lockTimer=0;}
+  dropTimer=0;
+}
+function hardDrop(){
+  let d=0;while(!collides(current.shape,current.x,current.y+1)){current.y++;d++;}
+  score+=d*2;document.getElementById('score').textContent=score;lockPiece();
+}
+function rotatePiece(){
+  const r=rotate(current.shape);
+  for(const k of[0,-1,1,-2,2]){
+    if(!collides(r,current.x+k,current.y)){current.shape=r;current.x+=k;lockTimer=null;return;}
+  }
+}
+function holdPiece(){
+  if(!canHold)return;canHold=false;
+  if(hold){const t=hold;hold={shape:current.shape,c:current.c};current=spawnPiece(t);}
+  else{hold={shape:current.shape,c:current.c};current=spawnPiece(next);next=getFromBag();}
+}
+
+/* ── Drawing ── */
+function drawCell(ctx,x,y,color,alpha){
+  alpha=alpha||1;
+  ctx.globalAlpha=alpha;
+  ctx.fillStyle=color;
+  ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
+  ctx.fillStyle='rgba(255,255,255,0.14)';
+  ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,4);
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.fillRect(x*CELL+1,y*CELL+CELL-5,CELL-2,4);
+  ctx.globalAlpha=1;
+}
+function drawBoard(){
+  bctx.clearRect(0,0,board.width,board.height);
+  bctx.fillStyle='rgba(2,6,28,0.92)';bctx.fillRect(0,0,board.width,board.height);
+  bctx.strokeStyle='rgba(40,80,160,0.1)';bctx.lineWidth=0.5;
+  for(let r=0;r<ROWS;r++){bctx.beginPath();bctx.moveTo(0,r*CELL);bctx.lineTo(board.width,r*CELL);bctx.stroke();}
+  for(let c=0;c<COLS;c++){bctx.beginPath();bctx.moveTo(c*CELL,0);bctx.lineTo(c*CELL,board.height);bctx.stroke();}
+  for(let r=0;r<ROWS;r++)
+    for(let c=0;c<COLS;c++)
+      if(grid[r][c])drawCell(bctx,c,r,COLORS[grid[r][c]]);
+  if(current&&gameState==='playing'){
+    const gy=ghostY();
+    for(let r=0;r<current.shape.length;r++)
+      for(let c=0;c<current.shape[r].length;c++)
+        if(current.shape[r][c]&&gy+r>=0)drawCell(bctx,current.x+c,gy+r,COLORS[current.c],0.18);
+    for(let r=0;r<current.shape.length;r++)
+      for(let c=0;c<current.shape[r].length;c++)
+        if(current.shape[r][c]&&current.y+r>=0)drawCell(bctx,current.x+c,current.y+r,COLORS[current.c]);
+  }
+}
+function drawPreview(ctx,piece,w,h){
+  ctx.clearRect(0,0,w,h);
+  if(!piece)return;
+  const s=piece.shape,rows=s.length,cols=s[0].length;
+  const cs=Math.min((w-8)/cols,(h-8)/rows,14);
+  const ox=(w-cols*cs)/2,oy=(h-rows*cs)/2;
+  for(let r=0;r<rows;r++)
+    for(let c=0;c<cols;c++)
+      if(s[r][c]){
+        ctx.fillStyle=COLORS[piece.c];ctx.fillRect(ox+c*cs+1,oy+r*cs+1,cs-2,cs-2);
+        ctx.fillStyle='rgba(255,255,255,0.14)';ctx.fillRect(ox+c*cs+1,oy+r*cs+1,cs-2,3);
+      }
+}
+
+/* ── Game Loop ── */
+function loop(ts){
+  if(gameState!=='playing'){
+    drawBoard();drawPreview(nctx,next,64,64);drawPreview(hctx,hold,64,64);return;
+  }
+  const dt=lastTime?ts-lastTime:0;lastTime=ts;dropTimer+=dt;
+  if(dropTimer>=dropInterval){
+    dropTimer=0;
+    if(!collides(current.shape,current.x,current.y+1)){current.y++;lockTimer=null;}
+    else{if(lockTimer===null)lockTimer=0;lockTimer+=dropInterval;if(lockTimer>=LOCK_DELAY)lockPiece();}
+  }
+  drawBoard();drawPreview(nctx,next,64,64);drawPreview(hctx,hold,64,64);
+  animId=requestAnimationFrame(loop);
+}
+
+/* ── State Management ── */
+function initGame(){
+  grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  bag=null;hold=null;canHold=true;score=0;level=1;lines=0;
+  dropInterval=800;dropTimer=0;lastTime=null;lockTimer=null;
+  document.getElementById('score').textContent='0';
+  document.getElementById('level').textContent='1';
+  document.getElementById('lines').textContent='0';
+  next=getFromBag();current=spawnPiece(getFromBag());next=getFromBag();
+  gameState='playing';
+  document.getElementById('overlay').style.display='none';
+  if(animId)cancelAnimationFrame(animId);
+  loop(performance.now());
+}
+function gameOver(){
+  gameState='gameover';cancelAnimationFrame(animId);
+  document.getElementById('overlay-title').textContent='GAME OVER';
+  document.getElementById('overlay-msg').textContent='Score: '+score+'\nLevel: '+level+'\nLines: '+lines;
+  document.getElementById('overlay-btn').textContent='Play Again';
+  document.getElementById('overlay').style.display='flex';
+}
+function togglePause(){
+  if(gameState==='playing'){
+    gameState='paused';
+    document.getElementById('overlay-title').textContent='PAUSED';
+    document.getElementById('overlay-msg').textContent='';
+    document.getElementById('overlay-btn').textContent='Resume';
+    document.getElementById('overlay').style.display='flex';
+  }else if(gameState==='paused'){
+    gameState='playing';
+    document.getElementById('overlay').style.display='none';
+    lastTime=null;loop(performance.now());
+  }
+}
+
+/* ── Keyboard Input ── */
+document.addEventListener('keydown',e=>{
+  if(gameState!=='playing')return;
+  if(e.key==='ArrowLeft'){e.preventDefault();moveLeft();}
+  else if(e.key==='ArrowRight'){e.preventDefault();moveRight();}
+  else if(e.key==='ArrowDown'){e.preventDefault();softDrop();}
+  else if(e.key==='ArrowUp'||e.key==='z'||e.key==='Z'){e.preventDefault();rotatePiece();}
+  else if(e.key===' '){e.preventDefault();hardDrop();}
+  else if(e.key==='c'||e.key==='C'){e.preventDefault();holdPiece();}
+  else if(e.key==='p'||e.key==='P')togglePause();
+});
+
+/* ── UI Buttons ── */
+document.getElementById('btn-pause').addEventListener('click',togglePause);
+document.getElementById('btn-restart').addEventListener('click',initGame);
+document.getElementById('overlay-btn').addEventListener('click',()=>{
+  if(gameState==='paused')togglePause();else initGame();
+});
+
+/* ── Touch Controls ── */
+[['t-left',moveLeft],['t-right',moveRight],['t-soft',softDrop],
+ ['t-hard',hardDrop],['t-rotate',rotatePiece],['t-hold',holdPiece]].forEach(([id,fn])=>{
+  document.getElementById(id).addEventListener('click',()=>{if(gameState==='playing')fn();});
+});
+
+/* ── Starfield ── */
+const sc=document.getElementById('stars');
+const sctx=sc.getContext('2d');
+function resizeStars(){sc.width=window.innerWidth;sc.height=window.innerHeight;}
+resizeStars();window.addEventListener('resize',resizeStars);
+const starList=Array.from({length:180},()=>({
+  x:Math.random(),y:Math.random(),r:Math.random()*1.4+0.3,
+  s:Math.random()*0.6+0.2,phase:Math.random()*Math.PI*2
+}));
+function drawStars(){
+  sctx.clearRect(0,0,sc.width,sc.height);
+  sctx.fillStyle='#000008';sctx.fillRect(0,0,sc.width,sc.height);
+  const t=Date.now()/1200;
+  starList.forEach(st=>{
+    sctx.globalAlpha=st.s*(0.7+0.3*Math.sin(t+st.phase));
+    sctx.fillStyle='#fff';sctx.beginPath();
+    sctx.arc(st.x*sc.width,st.y*sc.height,st.r,0,Math.PI*2);sctx.fill();
+  });
+  sctx.globalAlpha=1;
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+/* ── Initial render before start ── */
+grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+next=PIECES.T;gameState='idle';
+drawBoard();drawPreview(nctx,next,64,64);drawPreview(hctx,null,64,64);
+
+})();
+</script>
+</body>
+</html>
